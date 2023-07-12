@@ -61,13 +61,18 @@ struct TockTapDevice {
 }
 
 const DRIVER_NUM: u32 = 0x30005;
-const RX_UPCALL_NO: u32 = 1;
+
+// Commands
+const DRIVER_LOCK_CMD: u32 = 1;
 const ACK_RX_PKT_CMD: u32 = 7;
+
+// Upcalls
+const RX_UPCALL_NO: u32 = 1;
 
 impl TockTapDevice {
     fn new() -> Self {
         // Acquire exclusive control of the Ethernet capsule
-        TockSyscalls::command(DRIVER_NUM, 1, 0, 0).to_result::<(), ErrorCode>().unwrap();
+        TockSyscalls::command(DRIVER_NUM, DRIVER_LOCK_CMD, 0, 0).to_result::<(), ErrorCode>().unwrap();
 
         Self {
             rx_buffer: [0; ETH_MTU],
@@ -94,7 +99,6 @@ impl TockTapDevice {
                             .to_result::<(), ErrorCode>().unwrap();
                         return Ok(Some(packet_length.0 as u16));
                     }
-                    panic!();
                 }
             }
         ).unwrap()
