@@ -257,30 +257,38 @@ fn main() {
         }
 
         let udp_socket: &mut smoltcp::socket::UdpSocket = interface.get_socket(udp_socket_handle);
-        if state == State::WaitingForCommand && udp_socket.can_recv() {
-            let (data, ip_endpoint) = udp_socket.recv().unwrap();
-            remote_ip_endpoint = Some(ip_endpoint);
-            if data.cmp(b"hello\n") == Ordering::Equal {
-                state = State::ShouldSayHello;
-            } else if data.cmp(b"bye\n") == Ordering::Equal {
-                state = State::ShouldSayBye;
+        if state == State::WaitingForCommand {
+            if udp_socket.can_recv() {
+                let (data, ip_endpoint) = udp_socket.recv().unwrap();
+                remote_ip_endpoint = Some(ip_endpoint);
+                if data.cmp(b"hello\n") == Ordering::Equal {
+                    state = State::ShouldSayHello;
+                } else if data.cmp(b"bye\n") == Ordering::Equal {
+                    state = State::ShouldSayBye;
+                }
+            } else {
+                writeln!(Console::writer(), "Received packet missed");
             }
         }
-        if state != State::WaitingForCommand && udp_socket.can_send() {
-            if state == State::ShouldSayHello {
-                udp_socket.send_slice(
-                    "Hello from smoltcp".as_bytes(),
-                    remote_ip_endpoint.unwrap()
-                )
-                .unwrap();
-            } else if state == State::ShouldSayBye {
-                udp_socket.send_slice(
-                    "Bye from smoltcp".as_bytes(),
-                    remote_ip_endpoint.unwrap()
-                )
-                .unwrap();
+        else {
+            if udp_socket.can_send() {
+                if state == State::ShouldSayHello {
+                    udp_socket.send_slice(
+                        "Hello from smoltcp".as_bytes(),
+                        remote_ip_endpoint.unwrap()
+                    )
+                        .unwrap();
+                    } else if state == State::ShouldSayBye {
+                        udp_socket.send_slice(
+                            "Bye from smoltcp".as_bytes(),
+                            remote_ip_endpoint.unwrap()
+                        )
+                            .unwrap();
+                    }
+                state = State::WaitingForCommand;
+            } else {
+                writeln!(Console::writer(), "Couldn't send packet");
             }
-            state = State::WaitingForCommand;
         }
     }
 }
