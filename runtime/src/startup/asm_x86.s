@@ -14,16 +14,16 @@
  */
 
 /* start is the entry point -- the first code executed by the kernel. The kernel
- * passes the following arguments onto the stack:
+ * passes the following arguments:
  *
- *  esp+4  Pointer to beginning of the process binary's code. The linker script
- *         locates rt_header at this address.
+ *  ebx  Pointer to beginning of the process binary's code. The linker script
+ *       locates rt_header at this address.
  *
- *     +8  Address of the beginning of the process's usable memory region.
- *     +12 Size of the process' allocated memory region (including grant region)
- *     +16 Process break provided by the kernel.
+ *  ecx  Address of the beginning of the process's usable memory region.
+ *  edx  Size of the process' allocated memory region (including grant region)
+ *  edi  Process break provided by the kernel.
  *
- * We currently only use the value in esp+4.
+ * We currently only use the value in ebx.
  */
 
 /* int 0x03 is used to trigger a breakpoint which is promoted to a hard fault in the
@@ -51,38 +51,36 @@ start:
 .Lget_eip:
     popl %eax               // eax = eip
     subl $5, %eax           // eax = eip - 5 byte instruction
-    movl 4(%esp), %ebx      // ebx = rt_header (top of memory)
     movl 0(%ebx), %ecx      // ecx = rt_header.start
     cmpl %ecx, %eax
     je .Lset_brk
     /* If the binary is not at the correct location, report the error via LowLevelDebug
      * then exit. */
     pushl %eax             // eip, not consumed by the syscall, but is seen in trace
-    pushl $2               // Code 0x02 (app was not installed in the correct location)
-    pushl $1               // Minor number: Alert code 
-    pushl $8               // Major number: LowLevelDebug driver
-    mov $2, %eax           // Command syscall
+    movl $2, %edx          // Code 0x02 (app was not installed in the correct location)
+    movl $1, %ecx          // Minor number: Alert code 
+    movl $8, %ebx          // Major number: LowLevelDebug driver
+    movl $2, %eax          // Command syscall
     int $0x40
-    addl $16, %esp
-    pushl $0
-    pushl $0
-    pushl $1              // Completion code: FAIL
-    pushl $0              // exit-terminate
-    mov $6, %eax          // Exit syscall
+    xorl %edi, %edi
+    xorl %edx, %edx
+    movl $1, %ecx          // Completion code: FAIL
+    xorl %ebx, %ebx        // exit-terminate
+    movl $6, %eax          // Exit syscall
     int $0x40
-    addl $16, %esp
     int $0x03              // If we return, trigger a fault
     
 
     /* Set brk to rt_header initial break value */
 .Lset_brk:
+	pushl %ebx
+	xorl %edi, %edi
+	xorl %edx, %edx
     movl 4(%ebx), %ecx      // ecx = initial process break
-    pushl $0
-    pushl $0
-    pushl %ecx              // push initial process break
-    pushl $0
+	xorl %ebx, %ebx
     movl  $5, %eax          // memop
     int $0x40
+	popl %ebx
 
     /* Set the stack pointer */
     mov 8(%ebx), %esp

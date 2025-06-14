@@ -50,6 +50,7 @@ impl<S: RawSyscalls> Syscalls for S {
         _subscribe: share::Handle<Subscribe<'share, Self, DRIVER_NUM, SUBSCRIBE_NUM>>,
         upcall: &'share U,
     ) -> Result<(), ErrorCode> {
+        #[cfg(not(target_arch = "x86"))]
         // The upcall function passed to the Tock kernel.
         //
         // Safety: data must be a reference to a valid instance of U.
@@ -63,6 +64,47 @@ impl<S: RawSyscalls> Syscalls for S {
             let upcall: *const U = data.into();
             unsafe { &*upcall }.upcall(arg0, arg1, arg2);
             core::mem::forget(exit);
+        }
+
+        // The upcall function passed to the Tock kernel.
+        //
+        // Safety: data must be a reference to a valid instance of U.
+        #[cfg(target_arch = "x86")]
+        unsafe extern "C" fn kernel_upcall2<S: Syscalls, IDS, U: Upcall<IDS>>(
+            arg0: u32,
+            arg1: u32,
+            arg2: u32,
+            data: Register,
+        ) {
+            let exit: exit_on_drop::ExitOnDrop<S> = Default::default();
+            let upcall: *const U = data.into();
+            unsafe { &*upcall }.upcall(arg0, arg1, arg2);
+            core::mem::forget(exit);
+        }
+
+        // The upcall function passed to the Tock kernel.
+        //
+        // Safety: data must be a reference to a valid instance of U.
+        #[cfg(target_arch = "x86")]
+        #[naked]
+        unsafe extern "C" fn kernel_upcall<S: Syscalls, IDS, U: Upcall<IDS>>(
+            arg0: u32,
+            arg1: u32,
+            arg2: u32,
+            data: Register,
+        ) {
+            unsafe {
+                core::arch::naked_asm!(
+                    "push edi",
+                    "push edx",
+                    "push ecx",
+                    "push ebx",
+                    "call {function}",
+                    "add esp, 16",
+                    "ret",
+                    function = sym kernel_upcall2::<S, IDS, U>,
+                );
+            }
         }
 
         // Inner function that does the majority of the work. This is not

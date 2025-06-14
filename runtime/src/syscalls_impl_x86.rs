@@ -6,20 +6,21 @@ unsafe impl RawSyscalls for crate::TockSyscalls {
     unsafe fn yield1([Register(r0)]: [Register; 1]) {
         unsafe {
             asm!(
-                "pushl $0",
-                "pushl $0",
-                "pushl $0",
-                "pushl {0}", // r0
+                // Save the address following the `int` instruction and push it
+                // on the stack.
+                "leal 2f, %eax",
+                "push %eax",
                 "movl $0, %eax",
                 "int $0x40",
-                "addl  $16, %esp",
+                "2:",
 
-                in(reg) r0,
+                inlateout("ebx") r0 => _,
 
                 // The following registers are clobbered by the syscall
                 out("eax") _,
                 out("ecx") _,
                 out("edx") _,
+                out("edi") _,
                 options(att_syntax),
             );
         }
@@ -29,21 +30,21 @@ unsafe impl RawSyscalls for crate::TockSyscalls {
     unsafe fn yield2([Register(r0), Register(r1)]: [Register; 2]) {
         unsafe {
             asm!(
-                "pushl $0",
-                "pushl $0",
-                "pushl {0}", // r1
-                "pushl {1}", // r0
-                "movl  $0, %eax",
+                // Save the address following the `int` instruction and push it
+                // on the stack.
+                "leal 2f, %eax",
+                "push %eax",
+                "movl $0, %eax",
                 "int $0x40",
-                "addl  $16, %esp",
+                "2:",
 
-                in(reg) r1,
-                in(reg) r0,
+                inlateout("ebx") r0 => _,
+                inlateout("ecx") r1 => _,
 
                 // The following registers are clobbered by the syscall
                 out("eax") _,
-                out("ecx") _,
                 out("edx") _,
+                out("edi") _,
                 options(att_syntax)
             );
         }
@@ -54,21 +55,16 @@ unsafe impl RawSyscalls for crate::TockSyscalls {
         let r1;
         unsafe {
             asm!(
-                "push $0",
-                "push $0",
-                "push $0",
-                "push {0}", // r0
                 "movl  $5, %eax",
                 "int $0x40",
-                "popl {0:e}", // r1
-                "popl {1:e}", // r0
-                "addl  $8, %esp",
 
-                inlateout(reg) r0,
-                out(reg) r1,
+                inlateout("ebx") r0,
+                out("ecx") r1,
 
                 // The following registers are clobbered by the syscall
                 out("eax") _,
+                out("edx") _,
+                out("edi") _,
                 options(att_syntax),
             );
         }
@@ -86,22 +82,15 @@ unsafe impl RawSyscalls for crate::TockSyscalls {
 
         unsafe {
             asm!(
-                "pushl $0",
-                "pushl $0",
-                "pushl {0}", // r1
-                "pushl {1}", // r0
-                "movl  {2}, %eax", // cmd
                 "int $0x40",
-                "popl {1:e}", // r0
-                "popl {0:e}", // r1
-                "addl  $8, %esp",
 
-                inlateout(reg) r1,
-                inlateout(reg) r0,
-                in(reg) cmd,
+                inlateout("ebx") r0,
+                inlateout("ecx") r1,
+                inlateout("eax") cmd => _,
 
                 // The following registers are clobbered by the syscall
-                out("eax") _,
+                out("edx") _,
+                out("edi") _,
                 options(att_syntax),
             );
         }
@@ -121,26 +110,15 @@ unsafe impl RawSyscalls for crate::TockSyscalls {
         };
         unsafe {
             asm!(
-                "pushl {3}", // r3
-                "pushl {2}", // r2
-                "pushl {1}", // r1
-                "pushl {0}", // r0
-                "movl  {4:e}, %eax",
                 "int $0x40",
-                "popl {0:e}", // r0
-                "popl {1:e}", // r1
-                "popl {2:e}", // r2
-                "popl {3:e}", // r3
                 
-                inlateout(reg) r0,
-                inlateout(reg) r1,
-                inlateout(reg) r2,
-                inlateout(reg) r3,
+                inlateout("ebx") r0,
+                inlateout("ecx") r1,
+                inlateout("edx") r2,
+                inlateout("edi") r3,
 
-                in(reg) cmd,
+                inlateout("eax") cmd => _,
 
-                // The following registers are clobbered by the syscall
-                out("eax") _,
                 options(att_syntax),
             );
         }
